@@ -1,25 +1,36 @@
-const AuditLog = require("../../models/auditLog.model");
 const logger = require("./logger");
 
-// Single entry point for writing to the audit trail. Fire-and-forget by
-// design: a logging failure should never block or fail the actual
-// request it's describing, so errors are caught and logged, not thrown.
-//
-// Usage: await logAudit(req.staff, "seller.approve", { type: "SellerProfile", id: sellerProfile._id }, { ... }, req)
-const logAudit = async (actor, action, target = {}, metadata = {}, req = null) => {
+/**
+ * Sends a security event to superadmin-backend's append-only audit log.
+ * Identical pattern to user-backend — fire-and-forget, never throws.
+ */
+const logSecurityEvent = async ({
+  action,
+  performedBy,
+  targetEntity,
+  targetId,
+  severity = "INFO",
+  metadata = {},
+  ipAddress,
+}) => {
+  const superadminUrl = process.env.SUPERADMIN_BACKEND_INTERNAL_URL;
+  if (!superadminUrl) {
+    logger.warn("logSecurityEvent: SUPERADMIN_BACKEND_INTERNAL_URL not set", { action, severity });
+    return;
+  }
   try {
-    await AuditLog.create({
-      actorId: actor?._id,
-      actorEmail: actor?.companyEmail,
-      action,
-      targetType: target.type,
-      targetId: target.id,
-      metadata,
-      ipAddress: req?.ip,
+    await fetch(`${superadminUrl}/internal/audit`, {
+      method:  "POST",
+      headers: {
+        "Content-Type":      "application/json",
+        "x-internal-secret": process.env.INTERNAL_API_SECRET,
+      },
+      body:   JSON.stringify({ action, performedBy, targetEntity, targetId, severity, metadata, ipAddress }),
+      signal: AbortSignal.timeout(3000),
     });
   } catch (err) {
-    logger.error("Failed to write audit log", { action, error: err?.message });
+    logger.error("logSecurityEvent: failed to write audit log", { action, severity, error: err.message });
   }
 };
 
-module.exports = { logAudit };
+module.exports = { logSecurityEvent };

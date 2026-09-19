@@ -9,6 +9,7 @@ const errorHandler = require("./shared/middleware/errorHandler.middleware");
 const { apiLimiter } = require("./shared/middleware/rateLimiter.middleware");
 
 const sellerRouter = require("./routes/seller.routes");
+const stockRouter  = require("./routes/stock.routes");
 
 const app = express();
 
@@ -23,6 +24,11 @@ app.use(apiLimiter);
 // Seller Microservice Routes (handles both /seller and /sellers)
 app.use("/api/v1/sellers", sellerRouter);
 app.use("/api/v1/seller", sellerRouter);
+
+// Stock stream (SSE) + internal service-to-service routes
+// Note: /internal/* routes bypass apiLimiter — they are not public endpoints
+app.use("/api/v1/stock", stockRouter);
+app.use("/internal",     stockRouter);
 
 app.use(notFound);
 app.use(errorHandler);
