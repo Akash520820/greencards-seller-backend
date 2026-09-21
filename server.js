@@ -4,7 +4,7 @@ const connectDB = require("./shared/db/index");
 const logger = require("./shared/utils/logger");
 const { startPoller } = require("./shared/workers/outboxPoller");
 
-const PORT = process.env.SELLER_SERVICE_PORT || 5002;
+const PORT = process.env.PORT || process.env.SELLER_SERVICE_PORT || 5002;
 
 connectDB()
   .then(() => {
