@@ -10,6 +10,7 @@ const { apiLimiter } = require("./shared/middleware/rateLimiter.middleware");
 
 const sellerRouter = require("./routes/seller.routes");
 const stockRouter  = require("./routes/stock.routes");
+const { handleIncomingEvent: handleSellerIncomingEvent, handleInternalCommand: handleSellerInternalCommand } = require("./controllers/events.controller");
 
 const app = express();
 
@@ -58,6 +59,10 @@ app.use("/api/v1/seller", sellerRouter);
 // Note: /internal/* routes bypass apiLimiter — they are not public endpoints
 app.use("/api/v1/stock", stockRouter);
 app.use("/internal",     stockRouter);
+
+// Internal command endpoint — receives admin-driven mutations (suspend/reinstate seller).
+// Called directly by admin-backend. NOT exposed through the API gateway.
+app.post("/internal/commands", handleSellerInternalCommand);
 
 app.use(notFound);
 app.use(errorHandler);

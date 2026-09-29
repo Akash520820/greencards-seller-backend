@@ -1,4 +1,6 @@
 const Product = require("../models/product.model");
+const SellerProfile = require("../models/sellerProfile.model");
+const User = require("../models/user.model");
 const Outbox = require("../models/outbox.model");
 const { broadcastStockUpdate } = require("./stock.controller");
 const logger = require("../shared/utils/logger");
@@ -192,4 +194,45 @@ const restoreStock = async (publicId, color, size, quantity) => {
   return Product.findOneAndUpdate({ publicId }, { $inc: { stock: quantity } }, { new: true });
 };
 
-module.exports = { handleIncomingEvent };
+/**
+ * Internal command handler — receives admin-driven mutation commands.
+ * Allows admin-backend to propagate suspendSeller changes to the authoritative
+ * seller_db owned by this service.
+ *
+ * POST /internal/commands
+ * Header: x-internal-secret: <INTERNAL_API_SECRET>
+ *
+ * Supported commands:
+ *   SELLER_SET_STATUS  — { sellerProfileId, status }   e.g. "suspended"
+ *   USER_ROLE_UPDATE   — { userId, role }               e.g. role: "user" on suspend
+ */
+const handleInternalCommand = async (req, res) => {
+  const { commandType, payload } = req.body;
+  logger.info(`Seller-backend internal command: ${commandType}`, { payload });
+
+  // Acknowledge immediately so admin-backend doesn't wait
+  res.status(200).json({ received: true });
+
+  try {
+    switch (commandType) {
+      case "SELLER_SET_STATUS": {
+        const { sellerProfileId, status } = payload;
+        await SellerProfile.findByIdAndUpdate(sellerProfileId, { status });
+        logger.info(`SELLER_SET_STATUS: sellerProfile ${sellerProfileId} → status=${status}`);
+        break;
+      }
+      case "USER_ROLE_UPDATE": {
+        const { userId, role } = payload;
+        await User.findByIdAndUpdate(userId, { role });
+        logger.info(`USER_ROLE_UPDATE: user ${userId} → role=${role}`);
+        break;
+      }
+      default:
+        logger.warn(`Seller-backend: unknown internal command type: ${commandType}`);
+    }
+  } catch (err) {
+    logger.error(`Error processing internal command ${commandType}`, { error: err.message, payload });
+  }
+};
+
+module.exports = { handleIncomingEvent, handleInternalCommand };
