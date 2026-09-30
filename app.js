@@ -11,6 +11,7 @@ const { apiLimiter } = require("./shared/middleware/rateLimiter.middleware");
 const sellerRouter = require("./routes/seller.routes");
 const stockRouter  = require("./routes/stock.routes");
 const { handleIncomingEvent: handleSellerIncomingEvent, handleInternalCommand: handleSellerInternalCommand } = require("./controllers/events.controller");
+const internalSecretGuard = require("./shared/middleware/internalSecret.middleware");
 
 const app = express();
 
@@ -62,7 +63,8 @@ app.use("/internal",     stockRouter);
 
 // Internal command endpoint — receives admin-driven mutations (suspend/reinstate seller).
 // Called directly by admin-backend. NOT exposed through the API gateway.
-app.post("/internal/commands", handleSellerInternalCommand);
+// 🔒 Protected by x-internal-secret header guard.
+app.post("/internal/commands", internalSecretGuard, handleSellerInternalCommand);
 
 app.use(notFound);
 app.use(errorHandler);
