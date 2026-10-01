@@ -205,6 +205,7 @@ const restoreStock = async (publicId, color, size, quantity) => {
  * Supported commands:
  *   SELLER_SET_STATUS  — { sellerProfileId, status }   e.g. "suspended"
  *   USER_ROLE_UPDATE   — { userId, role }               e.g. role: "user" on suspend
+ *   USER_SET_ACTIVE    — { userId, isActive }           e.g. deactivate seller user account
  */
 const handleInternalCommand = async (req, res) => {
   const { commandType, payload } = req.body;
@@ -215,6 +216,12 @@ const handleInternalCommand = async (req, res) => {
 
   try {
     switch (commandType) {
+      case "USER_SET_ACTIVE": {
+        const { userId, isActive } = payload;
+        await User.findByIdAndUpdate(userId, { isActive });
+        logger.info(`USER_SET_ACTIVE: user ${userId} → isActive=${isActive}`);
+        break;
+      }
       case "SELLER_SET_STATUS": {
         const { sellerProfileId, status } = payload;
         await SellerProfile.findByIdAndUpdate(sellerProfileId, { status });
